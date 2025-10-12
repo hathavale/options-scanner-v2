@@ -107,6 +107,14 @@ def find_leaps(
     today = datetime.now()
     leaps = []
     
+    # Debug: Log what we're looking for
+    logger.info(f"🔍 find_leaps: Looking for option_type='{option_type}'")
+    
+    # Debug: Count option types in data
+    call_count = sum(1 for opt in data if opt.get("type") == "call")
+    put_count = sum(1 for opt in data if opt.get("type") == "put")
+    logger.info(f"📊 Available options: {call_count} calls, {put_count} puts")
+    
     for option in data:
         if option.get("type") != option_type:
             continue
@@ -166,6 +174,9 @@ def find_shorts(
     """Filter and find qualifying short options"""
     today = datetime.now()
     shorts = []
+    
+    # Debug: Log what we're looking for
+    logger.info(f"🔍 find_shorts: Looking for option_type='{option_type}'")
     
     for option in data:
         if option.get("type") != option_type:
@@ -253,6 +264,10 @@ def scan_opportunities_alphavantage(
     option_type = "call" if type_of_trade == 'Poor Mans Covered Call' else "put"
     leaps_target_delta = 0.8 if option_type == "call" else -0.8
     short_target_delta = 0.3 if option_type == "call" else -0.3
+    
+    # Debug: Log the strategy type
+    logger.info(f"🎯 Strategy: {type_of_trade} → option_type='{option_type}'")
+    logger.info(f"🎯 Target deltas: LEAPS={leaps_target_delta}, SHORT={short_target_delta}")
     
     opportunities = []
     errors = []
