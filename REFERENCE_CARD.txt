@@ -1,0 +1,212 @@
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                    OPTIONS STRATEGY SCANNER V2                               ║
+║                         Project Structure                                    ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+📦 options-scanner-v2/
+│
+├── 🐍 BACKEND
+│   ├── app.py                      ⭐ Main Flask application (700+ lines)
+│   ├── requirements.txt            📋 Python dependencies
+│   └── .env.example                🔐 Environment template
+│
+├── 🎨 FRONTEND
+│   ├── templates/
+│   │   ├── index.html             🏠 Main scanner page (600+ lines)
+│   │   └── favorites.html         ⭐ Favorites page (400+ lines)
+│   │
+│   └── static/
+│       └── css/
+│           ├── styles.css         🎨 Main stylesheet (900+ lines)
+│           └── favorites.css      💅 Favorites styles (300+ lines)
+│
+├── 💾 DATABASE
+│   └── database_schema.sql        📊 Database setup & schema
+│
+├── 📚 DOCUMENTATION
+│   ├── OVERVIEW.md                📖 Complete project overview
+│   ├── README.md                  📝 Comprehensive documentation
+│   ├── QUICKSTART.md             🚀 Step-by-step setup guide
+│   ├── PROJECT_SUMMARY.md        🔍 Technical overview
+│   └── DEPLOYMENT_CHECKLIST.md   ✅ Production deployment guide
+│
+└── ⚙️ CONFIGURATION
+    └── .gitignore                 🙈 Git ignore rules
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                           KEY FEATURES                                       ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+✨ USER INTERFACE
+  • Dark-themed modern design (#1a1d2e, #3b8bf0 accents)
+  • Two-panel layout (Service logs | Main content)
+  • Card-based results (not tables)
+  • Responsive mobile-friendly design
+  • Real-time service logs with color coding
+
+🎯 FILTER SYSTEM
+  • Purple gradient header (#667eea → #764ba2)
+  • Save/Load/Delete filter configurations
+  • Two-column grid (LEAPS | Short criteria)
+  • Strategy parameters (Net debit %, Max trades, Risk-free rate)
+  • Trade type selection (PMCC/PMCP)
+
+🔍 SCANNING ENGINE
+  • Multi-symbol scanning (comma-separated)
+  • Advanced filtering (Delta, DTE, OI, Volume)
+  • Metrics calculation (ROC, POP, Breakeven)
+  • Smart LEAPS-Short matching algorithm
+  • Configurable result limits
+
+⭐ FAVORITES MANAGEMENT
+  • Separate dedicated page
+  • Two-level sorting with ASC/DESC toggles
+  • Advanced filtering (Symbol, Trade type, Strikes)
+  • Card grid display
+  • One-click remove functionality
+
+📊 METRICS & ANALYTICS
+  • ROC (Return on Capital) %
+  • POP (Probability of Profit) %
+  • Net Debit & Net Debit %
+  • Position Delta
+  • Breakeven Price
+  • Max Profit
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                         DATABASE SCHEMA                                      ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+📊 strategy_filter_criteria (Your existing table)
+  ├── id, filter_criteria_name
+  ├── LEAPS: leaps_min_days, leaps_max_days, leaps_min_delta, 
+  │          leaps_min_itm_percent, leaps_open_interest_min, leaps_volume_min
+  ├── Short: short_min_days, short_max_days, short_min_otm_percent,
+  │          short_max_otm_percent, short_open_interest_min, short_volume_min
+  ├── Strategy: max_net_debit_pct, max_trades, risk_free_rate, type_of_trade
+  └── Management: is_active, is_deprecated, timestamps
+
+⭐ strategy_favorites (Your existing table)
+  ├── id, symbol, price
+  ├── LEAPS: leaps_exp, leaps_strike, leaps_cost, leaps_delta, leaps_oi, leaps_volume
+  ├── Short: short_exp, short_strike, short_cost, short_delta, short_iv, short_oi, short_volume
+  ├── Metrics: net_debit, net_debit_pct, roc_pct, pop_pct, position_delta, break_even
+  └── Meta: type_of_trade, date_created
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                          API ENDPOINTS                                       ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+🔧 FILTER MANAGEMENT
+  GET    /api/filters                List all filters
+  GET    /api/filters/:id            Get specific filter
+  POST   /api/filters                Create/update filter
+  DELETE /api/filters/:id            Delete filter
+  POST   /api/filters/:id/activate   Activate filter
+
+🔍 SCANNING
+  POST   /api/scan                   Scan for opportunities
+
+⭐ FAVORITES
+  GET    /api/favorites              List favorites (with sorting/filtering)
+  POST   /api/favorites              Add to favorites
+  DELETE /api/favorites/:id          Remove favorite
+  GET    /api/favorites/field-values/:field   Get distinct values
+
+🏠 PAGES
+  GET    /                           Main scanner page
+  GET    /favorites                  Favorites page
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                        QUICK START COMMANDS                                  ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+1️⃣  SETUP ENVIRONMENT
+    python3 -m venv venv
+    source venv/bin/activate
+    pip install -r requirements.txt
+
+2️⃣  CONFIGURE DATABASE
+    cp .env.example .env
+    # Edit .env with: DATABASE_URL=postgresql://user:pass@host:port/db
+
+3️⃣  RUN APPLICATION
+    python app.py
+
+4️⃣  ACCESS APPLICATION
+    http://localhost:5000
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                      DOCUMENTATION QUICK GUIDE                               ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+📖 OVERVIEW.md              ← START HERE! Complete project overview
+🚀 QUICKSTART.md            ← Setup & first-time usage guide
+📝 README.md                ← Comprehensive feature documentation
+🔍 PROJECT_SUMMARY.md       ← Technical architecture details
+✅ DEPLOYMENT_CHECKLIST.md  ← Production deployment guide
+💾 database_schema.sql      ← Database schema & setup queries
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                         COLOR PALETTE                                        ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+🎨 BACKGROUNDS              🌈 ACCENTS                  📊 STATUS
+   #1a1d2e - Main              #3b8bf0 - Primary Blue      #10b981 - Success
+   #1e2139 - Container         #2563eb - Dark Blue         #ef4444 - Error
+   #242938 - Header            #667eea - Purple            #f59e0b - Warning
+   #2d3142 - Border            #764ba2 - Deep Purple       #a0a0a0 - Muted
+
+🎭 GRADIENTS
+   Filter Section:  linear-gradient(135deg, #667eea 0%, #764ba2 100%)
+   Action Buttons:  linear-gradient(135deg, #f093fb 0%, #f5576c 100%)
+   Card Headers:    linear-gradient(135deg, #3b8bf0 0%, #2563eb 100%)
+
+📈 STRATEGY COLORS
+   Long LEAPS:  #27ae60 (Green border)
+   Short Calls: #e74c3c (Red border)
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                           STATUS CHECKLIST                                   ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+✅ COMPLETED
+  ✓ Complete UI implementation (100%)
+  ✓ Backend API (Flask with all endpoints)
+  ✓ Database integration (PostgreSQL)
+  ✓ Filter management (CRUD operations)
+  ✓ Favorites system (Add/Remove/Sort/Filter)
+  ✓ Screening algorithm (LEAPS + Short matching)
+  ✓ Metrics calculations (ROC, POP, Delta, etc.)
+  ✓ Responsive design (Desktop + Mobile)
+  ✓ Service logging (Real-time updates)
+  ✓ Comprehensive documentation (5 files)
+
+⚠️  REQUIRES DATA INTEGRATION
+  ⏳ Live options data (Choose provider: Alpha Vantage, TD Ameritrade, etc.)
+  ⏳ Underlying price fetching
+  ⏳ Options chain data
+
+💡 OPTIONAL ENHANCEMENTS
+  ⭕ Greeks visualization
+  ⭕ Performance tracking
+  ⭕ Email alerts
+  ⭕ Export to CSV/Excel
+  ⭕ Additional strategies
+  ⭕ Backtesting functionality
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                          NEXT STEPS                                          ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+1. 📖 Read OVERVIEW.md for complete understanding
+2. 🚀 Follow QUICKSTART.md for setup (5 minutes)
+3. 🧪 Test the application with default filter
+4. 🔌 Choose and integrate options data provider
+5. 🚀 Deploy using DEPLOYMENT_CHECKLIST.md
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                    BASED ON pmcc-options-app-v1                             ║
+║               Adapted for your NeonDB schema & requirements                  ║
+║                    Built with ❤️  Ready to deploy 🚀                        ║
+╚══════════════════════════════════════════════════════════════════════════════╝

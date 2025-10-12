@@ -1,0 +1,178 @@
+╔══════════════════════════════════════════════════════════════════════════════╗
+║              ALPHA VANTAGE INTEGRATION - QUICK REFERENCE                     ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ SETUP CHECKLIST                                                              │
+├──────────────────────────────────────────────────────────────────────────────┤
+│ ☐ 1. Verify .env has: ALPHAVANTAGE_API_KEY="ZSDQA0G3YL73HLCC"              │
+│ ☐ 2. Run migration: psql $DATABASE_URL -f migration_add_leaps_max_itm.sql  │
+│ ☐ 3. Install scipy: pip install scipy==1.11.4                              │
+│ ☐ 4. Start app: python app.py                                              │
+│ ☐ 5. Test with 1-2 symbols first                                           │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ NEW FILTER FIELD                                                             │
+├──────────────────────────────────────────────────────────────────────────────┤
+│ Field: LEAPS Max ITM %                                                       │
+│ Location: Filter Configuration → LEAPS Criteria                             │
+│ Default: 50%                                                                 │
+│ Purpose: Upper bound for LEAPS ITM percentage                               │
+│ Example: Min ITM 10% + Max ITM 50% = LEAPS in 10-50% ITM range             │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ API USAGE LIMITS                                                             │
+├──────────────────────────────────────────────────────────────────────────────┤
+│ Rate Limit:    600 requests/minute                                          │
+│ Daily Limit:   25,000 requests/day                                          │
+│ Per Symbol:    2 API calls (price + options chain)                          │
+│ Max/Min:       ~295 symbols per minute                                      │
+│ Max/Day:       ~12,500 symbols per day                                      │
+│ Throttle:      Auto-managed at 590 req/min (safe buffer)                   │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ SCANNING WORKFLOW                                                            │
+├──────────────────────────────────────────────────────────────────────────────┤
+│ 1. Configure Filter                                                          │
+│    → Set all criteria including new "Max ITM %"                             │
+│    → Save filter for reuse                                                  │
+│                                                                              │
+│ 2. Enter Symbols (comma-separated)                                          │
+│    → Recommended: 5-10 symbols at a time                                    │
+│    → Example: AMD, NVDA, TSLA, AAPL, MSFT                                   │
+│                                                                              │
+│ 3. Click "Scan Opportunities"                                               │
+│    → Wait 2-5 seconds per symbol                                            │
+│    → Progress shown in Service Logs                                         │
+│                                                                              │
+│ 4. Review Results                                                            │
+│    → Sorted by ROC (highest first)                                          │
+│    → Each card shows LEAPS + Short details                                  │
+│    → Metrics: ROC, POP, Delta, Break-Even                                   │
+│                                                                              │
+│ 5. Save Favorites                                                            │
+│    → Click "Add to Favorites" button                                        │
+│    → Access from Favorites page                                             │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ METRICS EXPLAINED                                                            │
+├──────────────────────────────────────────────────────────────────────────────┤
+│ ROC (Return on Capital):                                                     │
+│   Formula: (Short Premium / Net Debit) × 100                                │
+│   Example: $500 premium / $5000 debit = 10% ROC                             │
+│   Higher = Better (but consider POP too)                                    │
+│                                                                              │
+│ POP (Probability of Profit):                                                 │
+│   Calculation: Black-Scholes model with IV                                  │
+│   Example: 70% = 70% chance short expires OTM                               │
+│   Higher = Better (lower risk)                                              │
+│                                                                              │
+│ Position Delta:                                                              │
+│   PMCC: LEAPS Delta - Short Delta                                           │
+│   PMCP: LEAPS Delta + Short Delta                                           │
+│   Example: 0.80 - 0.30 = 0.50 (50% of stock move)                          │
+│                                                                              │
+│ Break-Even:                                                                  │
+│   PMCC: LEAPS Strike + (Net Debit / 100)                                    │
+│   PMCP: LEAPS Strike - (Net Debit / 100)                                    │
+│   Example: $150 + ($5000/100) = $200 break-even                             │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ ERROR MESSAGES & SOLUTIONS                                                   │
+├──────────────────────────────────────────────────────────────────────────────┤
+│ Error: "ALPHAVANTAGE_API_KEY not configured"                                │
+│   → Add API key to .env file                                                │
+│                                                                              │
+│ Error: "API rate limit reached"                                             │
+│   → Wait 60 seconds before next scan                                        │
+│   → Reduce number of symbols                                                │
+│                                                                              │
+│ Error: "No price data for SYMBOL"                                           │
+│   → Check symbol spelling                                                   │
+│   → Verify symbol exists and trades options                                 │
+│                                                                              │
+│ Error: "column 'leaps_max_itm_percent' does not exist"                      │
+│   → Run database migration script                                           │
+│   → psql $DATABASE_URL -f migration_add_leaps_max_itm.sql                  │
+│                                                                              │
+│ No opportunities found:                                                      │
+│   → Widen filter criteria (ITM/OTM ranges, days)                            │
+│   → Lower OI/Volume minimums                                                │
+│   → Try more liquid symbols                                                 │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ PERFORMANCE TIPS                                                             │
+├──────────────────────────────────────────────────────────────────────────────┤
+│ ✓ Scan 5-10 symbols at a time for optimal speed                            │
+│ ✓ Use tight filter criteria to reduce processing                           │
+│ ✓ Scan during market hours (9:30 AM - 4 PM ET) for fresh data             │
+│ ✓ Save results to Favorites instead of re-scanning                         │
+│ ✓ Consider scanning once per hour for swing trades                         │
+│ ✗ Avoid scanning 50+ symbols at once (will be slow)                        │
+│ ✗ Don't scan same symbols repeatedly (wastes API calls)                    │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ FILTER OPTIMIZATION GUIDE                                                    │
+├──────────────────────────────────────────────────────────────────────────────┤
+│ Conservative (Lower Risk):                                                   │
+│   LEAPS: 365-730 days, 70-80 delta, 10-30% ITM                             │
+│   Short: 30-45 days, 20-30 delta, 5-15% OTM                                │
+│   Net Debit: < 50%                                                          │
+│                                                                              │
+│ Moderate (Balanced):                                                         │
+│   LEAPS: 300-600 days, 65-75 delta, 10-40% ITM                             │
+│   Short: 30-60 days, 25-35 delta, 3-20% OTM                                │
+│   Net Debit: < 60%                                                          │
+│                                                                              │
+│ Aggressive (Higher ROC):                                                     │
+│   LEAPS: 180-500 days, 60-70 delta, 10-50% ITM                             │
+│   Short: 15-45 days, 30-40 delta, 3-25% OTM                                │
+│   Net Debit: < 70%                                                          │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ COMMAND REFERENCE                                                            │
+├──────────────────────────────────────────────────────────────────────────────┤
+│ Start App:          python app.py                                           │
+│ Run Migration:      psql $DATABASE_URL -f migration_add_leaps_max_itm.sql  │
+│ Install Deps:       pip install -r requirements.txt                        │
+│ View Logs:          Check terminal output for detailed logs                │
+│ Access UI:          http://localhost:5000                                   │
+│ Favorites:          http://localhost:5000/favorites                         │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ TROUBLESHOOTING COMMANDS                                                     │
+├──────────────────────────────────────────────────────────────────────────────┤
+│ Check API Key:                                                               │
+│   cat .env | grep ALPHAVANTAGE                                              │
+│                                                                              │
+│ Test Database Connection:                                                    │
+│   psql $DATABASE_URL -c "SELECT COUNT(*) FROM strategy_filter_criteria;"   │
+│                                                                              │
+│ Verify Column Exists:                                                        │
+│   psql $DATABASE_URL -c "SELECT leaps_max_itm_percent FROM                 │
+│     strategy_filter_criteria LIMIT 1;"                                      │
+│                                                                              │
+│ Check Python Imports:                                                        │
+│   python -c "from scipy.stats import norm; print('✅ scipy OK')"           │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║ DOCUMENTATION FILES                                                          ║
+╠══════════════════════════════════════════════════════════════════════════════╣
+║ ALPHA_VANTAGE_INTEGRATION.md  → Complete integration guide                  ║
+║ INTEGRATION_SUMMARY.md         → Implementation details                     ║
+║ QUICKSTART.md                  → General app setup                          ║
+║ README.md                      → Project overview                           ║
+║ migration_add_leaps_max_itm.sql → Database migration                        ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+Version: 2.0.0 | Date: October 12, 2025 | Status: Production Ready ✅

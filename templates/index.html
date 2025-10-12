@@ -1,0 +1,679 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Options Strategy Scanner</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+</head>
+<body>
+    <div class="main-layout">
+        <!-- Service Logs Panel (Left Side) -->
+        <div class="service-logs">
+            <div class="logs-header">
+                <h3>Service Logs</h3>
+                <div class="logs-controls">
+                    <button class="log-btn" onclick="clearLogs()">Clear</button>
+                    <button class="log-btn" onclick="refreshLogs()">Refresh</button>
+                </div>
+            </div>
+            <div class="logs-content" id="logsContent">
+                <div class="log-entry">
+                    <span class="log-timestamp">--:--:--</span>
+                    <span class="log-tag">[System]</span>
+                    <span class="log-message">Waiting for activity...</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content Area (Right Side) -->
+        <div class="content-area">
+            <div class="container">
+                <div class="header">
+                    <h1>📊 Options Strategy Scanner</h1>
+                    <p>Poor Man's Covered Call & Put Screener</p>
+                </div>
+
+                <!-- Tabs Navigation -->
+                <div class="tabs-container">
+                    <div class="tabs-header">
+                        <button class="tab-button active" onclick="switchTab('scanner-tab', event)">
+                            🔍 Scanner
+                        </button>
+                        <a href="/favorites" class="tab-button" style="text-decoration: none; display: inline-flex; align-items: center;">
+                            ⭐ Favorites
+                        </a>
+                    </div>
+
+                    <!-- Tab 1: Scanner -->
+                    <div id="scanner-tab" class="tab-content active">
+                        <!-- Filter Section -->
+                        <div class="filter-section">
+                            <div class="filter-header">
+                                <h2>🎯 Filter Criteria</h2>
+                                <div class="filter-controls">
+                                    <select id="filterSelect" class="filter-select">
+                                        <option value="">Select Filter...</option>
+                                    </select>
+                                    <button onclick="saveFilter()" class="btn btn-save">💾 Save</button>
+                                    <button onclick="saveAsFilter()" class="btn btn-save-as">📝 Save As</button>
+                                    <button onclick="loadFilter()" class="btn btn-load">📂 Load</button>
+                                    <button onclick="deleteFilter()" class="btn btn-delete">🗑️ Delete</button>
+                                </div>
+                            </div>
+                            
+                            <!-- Strategy Type Selector (Prominent) -->
+                            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
+                                <div style="display: flex; align-items: center; gap: 15px;">
+                                    <label style="color: white; font-size: 18px; font-weight: 600; margin: 0;">📊 Strategy Type:</label>
+                                    <select id="typeOfTrade" onchange="updateStrategyLabels()" style="flex: 1; padding: 12px; font-size: 16px; border-radius: 8px; border: 2px solid white; background: white; font-weight: 600; cursor: pointer;">
+                                        <option value="Poor Mans Covered Call" {{ 'selected' if filter_criteria and filter_criteria['type_of_trade'] == 'Poor Mans Covered Call' else '' }}>📈 Poor Man's Covered Call (PMCC) - Bullish</option>
+                                        <option value="Poor Mans Covered Put" {{ 'selected' if filter_criteria and filter_criteria['type_of_trade'] == 'Poor Mans Covered Put' else '' }}>📉 Poor Man's Covered Put (PMCP) - Bearish</option>
+                                    </select>
+                                </div>
+                                <div style="color: rgba(255,255,255,0.9); font-size: 13px; margin-top: 10px; padding-left: 15px;">
+                                    <span id="strategyDescription">
+                                        {{ 'Buy deep ITM LEAP Call + Sell OTM Call (Bullish diagonal spread)' if not filter_criteria or filter_criteria['type_of_trade'] == 'Poor Mans Covered Call' else 'Buy deep ITM LEAP Put + Sell OTM Put (Bearish diagonal spread)' }}
+                                    </span>
+                                </div>
+                            </div>
+                            
+                            <div class="filter-grid">
+                                <!-- LEAPS Criteria -->
+                                <div class="filter-group">
+                                    <h3><span id="leapsLabel">Long Call</span> (LEAPS) Criteria</h3>
+                                    <div class="filter-row">
+                                        <label>Days Range:</label>
+                                        <input type="number" id="leapsMinDays" value="{{ filter_criteria['leaps_min_days'] if filter_criteria else 180 }}" min="0">
+                                        <span>to</span>
+                                        <input type="number" id="leapsMaxDays" value="{{ filter_criteria['leaps_max_days'] if filter_criteria else 365 }}" min="0">
+                                        <span>days</span>
+                                    </div>
+                                    <div class="filter-row">
+                                        <label>Min Delta:</label>
+                                        <input type="number" id="leapsMinDelta" value="{{ filter_criteria['leaps_min_delta'] if filter_criteria else 0.70 }}" step="0.01" min="0" max="1">
+                                    </div>
+                                    <div class="filter-row">
+                                        <label>Min ITM %:</label>
+                                        <input type="number" id="leapsMinItm" value="{{ filter_criteria['leaps_min_itm_percent'] if filter_criteria else 10 }}" step="0.1" min="0">
+                                        <span>%</span>
+                                    </div>
+                                    <div class="filter-row">
+                                        <label>Max ITM %:</label>
+                                        <input type="number" id="leapsMaxItm" value="{{ filter_criteria['leaps_max_itm_percent'] if filter_criteria else 50 }}" step="0.1" min="0">
+                                        <span>%</span>
+                                    </div>
+                                    <div class="filter-row">
+                                        <label>Min Open Int:</label>
+                                        <input type="number" id="leapsOpenInterestMin" value="{{ filter_criteria['leaps_open_interest_min'] if filter_criteria else 10 }}" min="0">
+                                    </div>
+                                    <div class="filter-row">
+                                        <label>Min Volume:</label>
+                                        <input type="number" id="leapsVolumeMin" value="{{ filter_criteria['leaps_volume_min'] if filter_criteria else 10 }}" min="0">
+                                    </div>
+                                </div>
+                                
+                                <!-- Short Option Criteria -->
+                                <div class="filter-group">
+                                    <h3><span id="shortLabel">Short Call</span> Criteria</h3>
+                                    <div class="filter-row">
+                                        <label>Days Range:</label>
+                                        <input type="number" id="shortMinDays" value="{{ filter_criteria['short_min_days'] if filter_criteria else 30 }}" min="0">
+                                        <span>to</span>
+                                        <input type="number" id="shortMaxDays" value="{{ filter_criteria['short_max_days'] if filter_criteria else 45 }}" min="0">
+                                        <span>days</span>
+                                    </div>
+                                    <div class="filter-row">
+                                        <label>OTM Range:</label>
+                                        <input type="number" id="shortMinOtm" value="{{ filter_criteria['short_min_otm_percent'] if filter_criteria else 3.0 }}" step="0.1" min="0">
+                                        <span>% to</span>
+                                        <input type="number" id="shortMaxOtm" value="{{ filter_criteria['short_max_otm_percent'] if filter_criteria else 20.0 }}" step="0.1" min="0">
+                                        <span>%</span>
+                                    </div>
+                                    <div class="filter-row">
+                                        <label>Min Open Int:</label>
+                                        <input type="number" id="shortOpenInterestMin" value="{{ filter_criteria['short_open_interest_min'] if filter_criteria else 10 }}" min="0">
+                                    </div>
+                                    <div class="filter-row">
+                                        <label>Min Volume:</label>
+                                        <input type="number" id="shortVolumeMin" value="{{ filter_criteria['short_volume_min'] if filter_criteria else 10 }}" min="0">
+                                    </div>
+                                </div>
+
+                                <!-- Strategy Parameters -->
+                                <div class="filter-group">
+                                    <h3>Strategy Parameters</h3>
+                                    <div class="filter-row">
+                                        <label>Max Net Debit %:</label>
+                                        <input type="number" id="maxNetDebitPct" value="{{ filter_criteria['max_net_debit_pct'] if filter_criteria else 0.5000 }}" step="0.0001" min="0" max="1">
+                                    </div>
+                                    <div class="filter-row">
+                                        <label>Max Trades:</label>
+                                        <input type="number" id="maxTrades" value="{{ filter_criteria['max_trades'] if filter_criteria else 5 }}" min="1">
+                                    </div>
+                                    <div class="filter-row">
+                                        <label>Risk Free Rate:</label>
+                                        <input type="number" id="riskFreeRate" value="{{ filter_criteria['risk_free_rate'] if filter_criteria else 0.045 }}" step="0.001" min="0">
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Scan Button -->
+                            <div class="scan-button-container">
+                                <input 
+                                    type="text" 
+                                    id="symbolInput" 
+                                    placeholder="Enter symbols (e.g., SOFI, AAPL, TSLA)"
+                                    class="scan-symbol-input"
+                                />
+                                <button onclick="scanOpportunities()" class="btn-scan" id="scanBtn">
+                                    🔍 Scan for Opportunities
+                                </button>
+                                <div id="scanStatus" class="scan-status"></div>
+                            </div>
+                        </div>
+
+                        <!-- Results Display -->
+                        <div class="results-pane" id="resultsPane">
+                            <div class="results-header">
+                                <h2>🎯 Strategy Opportunities</h2>
+                                <span class="results-count" id="resultsCount"></span>
+                            </div>
+                            
+                            <div class="cards-grid" id="cardsGrid">
+                                <!-- Cards will be inserted here dynamically -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentFilterId = {{ filter_criteria['id'] if filter_criteria else 'null' }};
+
+        // Update strategy labels based on selected strategy type
+        function updateStrategyLabels() {
+            const strategyType = document.getElementById('typeOfTrade').value;
+            const isCall = strategyType === 'Poor Mans Covered Call';
+            
+            // Update labels
+            document.getElementById('leapsLabel').textContent = isCall ? 'Long Call' : 'Long Put';
+            document.getElementById('shortLabel').textContent = isCall ? 'Short Call' : 'Short Put';
+            
+            // Update description
+            const description = isCall 
+                ? 'Buy deep ITM LEAP Call + Sell OTM Call (Bullish diagonal spread)'
+                : 'Buy deep ITM LEAP Put + Sell OTM Put (Bearish diagonal spread)';
+            document.getElementById('strategyDescription').textContent = description;
+        }
+
+        // Tab switching
+        function switchTab(tabId, event) {
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            document.querySelectorAll('.tab-button').forEach(button => {
+                button.classList.remove('active');
+            });
+            
+            document.getElementById(tabId).classList.add('active');
+            if (event) event.target.classList.add('active');
+        }
+
+        // Load filters on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            updateStrategyLabels(); // Initialize labels on page load
+            loadFiltersList();
+        });
+
+        // Load filters list
+        async function loadFiltersList() {
+            try {
+                const response = await fetch('/api/filters');
+                const filters = await response.json();
+                
+                const select = document.getElementById('filterSelect');
+                select.innerHTML = '<option value="">Select Filter...</option>';
+                
+                filters.forEach(filter => {
+                    const option = document.createElement('option');
+                    option.value = filter.id;
+                    option.textContent = filter.filter_criteria_name;
+                    if (filter.is_active) {
+                        option.textContent += ' ⭐';
+                        option.selected = true;
+                        currentFilterId = filter.id;
+                    }
+                    select.appendChild(option);
+                });
+
+                addLog('Filters loaded successfully', 'success', 'Filter');
+            } catch (error) {
+                console.error('Error loading filters:', error);
+                addLog(`Failed to load filters: ${error.message}`, 'error', 'Filter');
+            }
+        }
+
+        // Load selected filter
+        async function loadFilter() {
+            const select = document.getElementById('filterSelect');
+            const filterId = select.value;
+            
+            if (!filterId) {
+                alert('Please select a filter to load');
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/filters/${filterId}`);
+                const filter = await response.json();
+                
+                if (filter.error) {
+                    alert('Error: ' + filter.error);
+                    return;
+                }
+
+                // Populate form fields
+                document.getElementById('leapsMinDays').value = filter.leaps_min_days;
+                document.getElementById('leapsMaxDays').value = filter.leaps_max_days;
+                document.getElementById('leapsMinDelta').value = filter.leaps_min_delta;
+                document.getElementById('leapsMinItm').value = filter.leaps_min_itm_percent;
+                document.getElementById('leapsMaxItm').value = filter.leaps_max_itm_percent || 50;
+                document.getElementById('leapsOpenInterestMin').value = filter.leaps_open_interest_min;
+                document.getElementById('leapsVolumeMin').value = filter.leaps_volume_min;
+                document.getElementById('shortMinDays').value = filter.short_min_days;
+                document.getElementById('shortMaxDays').value = filter.short_max_days;
+                document.getElementById('shortMinOtm').value = filter.short_min_otm_percent;
+                document.getElementById('shortMaxOtm').value = filter.short_max_otm_percent;
+                document.getElementById('shortOpenInterestMin').value = filter.short_open_interest_min;
+                document.getElementById('shortVolumeMin').value = filter.short_volume_min;
+                document.getElementById('maxNetDebitPct').value = filter.max_net_debit_pct;
+                document.getElementById('maxTrades').value = filter.max_trades;
+                document.getElementById('riskFreeRate').value = filter.risk_free_rate;
+                document.getElementById('typeOfTrade').value = filter.type_of_trade;
+
+                currentFilterId = filter.id;
+                updateStrategyLabels(); // Update labels after loading filter
+                alert('Filter loaded successfully!');
+                addLog(`Filter loaded: ${filter.filter_criteria_name}`, 'success', 'Filter');
+            } catch (error) {
+                console.error('Error loading filter:', error);
+                alert('Failed to load filter');
+                addLog(`Failed to load filter: ${error.message}`, 'error', 'Filter');
+            }
+        }
+
+        // Save current filter
+        async function saveFilter() {
+            if (!currentFilterId) {
+                alert('No active filter. Use "Save As" to create a new filter.');
+                return;
+            }
+
+            const filterData = getFilterData();
+            filterData.id = currentFilterId;
+
+            try {
+                const response = await fetch('/api/filters', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(filterData)
+                });
+
+                const result = await response.json();
+                if (result.error) {
+                    alert('Error: ' + result.error);
+                } else {
+                    alert('Filter saved successfully!');
+                    addLog(`Filter saved`, 'success', 'Filter');
+                    loadFiltersList();
+                }
+            } catch (error) {
+                console.error('Error saving filter:', error);
+                alert('Failed to save filter');
+                addLog(`Failed to save filter: ${error.message}`, 'error', 'Filter');
+            }
+        }
+
+        // Save as new filter
+        async function saveAsFilter() {
+            const filterName = prompt('Enter a name for the new filter:');
+            if (!filterName) return;
+
+            const filterData = getFilterData();
+            filterData.filter_criteria_name = filterName;
+
+            try {
+                const response = await fetch('/api/filters', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(filterData)
+                });
+
+                const result = await response.json();
+                if (result.error) {
+                    alert('Error: ' + result.error);
+                } else {
+                    currentFilterId = result.id;
+                    alert('New filter created successfully!');
+                    addLog(`Filter created: ${filterName}`, 'success', 'Filter');
+                    loadFiltersList();
+                }
+            } catch (error) {
+                console.error('Error creating filter:', error);
+                alert('Failed to create filter');
+            }
+        }
+
+        // Delete current filter
+        async function deleteFilter() {
+            const select = document.getElementById('filterSelect');
+            const filterId = select.value;
+            
+            if (!filterId) {
+                alert('Please select a filter to delete');
+                return;
+            }
+
+            if (!confirm('Are you sure you want to delete this filter?')) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/filters/${filterId}`, {
+                    method: 'DELETE'
+                });
+
+                const result = await response.json();
+                if (result.error) {
+                    alert('Error: ' + result.error);
+                } else {
+                    alert('Filter deleted successfully!');
+                    currentFilterId = null;
+                    addLog('Filter deleted', 'success', 'Filter');
+                    loadFiltersList();
+                }
+            } catch (error) {
+                console.error('Error deleting filter:', error);
+                alert('Failed to delete filter');
+            }
+        }
+
+        // Get filter data from form
+        function getFilterData() {
+            return {
+                filter_criteria_name: document.getElementById('filterSelect').options[document.getElementById('filterSelect').selectedIndex]?.text.replace(' ⭐', '') || 'New Filter',
+                leaps_min_days: parseInt(document.getElementById('leapsMinDays').value),
+                leaps_max_days: parseInt(document.getElementById('leapsMaxDays').value),
+                leaps_min_delta: parseFloat(document.getElementById('leapsMinDelta').value),
+                leaps_min_itm_percent: parseFloat(document.getElementById('leapsMinItm').value),
+                leaps_max_itm_percent: parseFloat(document.getElementById('leapsMaxItm').value),
+                leaps_open_interest_min: parseInt(document.getElementById('leapsOpenInterestMin').value),
+                leaps_volume_min: parseInt(document.getElementById('leapsVolumeMin').value),
+                short_min_days: parseInt(document.getElementById('shortMinDays').value),
+                short_max_days: parseInt(document.getElementById('shortMaxDays').value),
+                short_min_otm_percent: parseFloat(document.getElementById('shortMinOtm').value),
+                short_max_otm_percent: parseFloat(document.getElementById('shortMaxOtm').value),
+                short_open_interest_min: parseInt(document.getElementById('shortOpenInterestMin').value),
+                short_volume_min: parseInt(document.getElementById('shortVolumeMin').value),
+                max_net_debit_pct: parseFloat(document.getElementById('maxNetDebitPct').value),
+                max_trades: parseInt(document.getElementById('maxTrades').value),
+                risk_free_rate: parseFloat(document.getElementById('riskFreeRate').value),
+                type_of_trade: document.getElementById('typeOfTrade').value
+            };
+        }
+
+        // Scan for opportunities
+        async function scanOpportunities() {
+            const symbolInput = document.getElementById('symbolInput');
+            const symbols = symbolInput.value.trim().toUpperCase();
+            
+            if (!symbols) {
+                alert('Please enter at least one symbol');
+                return;
+            }
+
+            const scanBtn = document.getElementById('scanBtn');
+            scanBtn.disabled = true;
+            showScanStatus('Scanning...', 'info');
+            addLog(`Starting scan for: ${symbols}`, 'info', 'Scan');
+
+            try {
+                const response = await fetch('/api/scan', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({symbols: symbols})
+                });
+
+                const result = await response.json();
+                
+                if (result.error) {
+                    showScanStatus('Error: ' + result.error, 'error');
+                    addLog(`Scan error: ${result.error}`, 'error', 'Scan');
+                } else {
+                    let totalOpportunities = result.results.reduce((sum, r) => sum + r.opportunities_found, 0);
+                    showScanStatus(`✅ Scan complete! Found ${totalOpportunities} opportunities.`, 'success');
+                    addLog(`Scan completed. Found ${totalOpportunities} opportunities`, 'success', 'Scan');
+                    
+                    // Display results
+                    displayResults(result.results);
+                }
+            } catch (error) {
+                console.error('Error scanning:', error);
+                showScanStatus('Error: ' + error.message, 'error');
+                addLog(`Scan failed: ${error.message}`, 'error', 'Scan');
+            } finally {
+                scanBtn.disabled = false;
+            }
+        }
+
+        // Display results
+        function displayResults(results) {
+            const resultsPane = document.getElementById('resultsPane');
+            const cardsGrid = document.getElementById('cardsGrid');
+            const resultsCount = document.getElementById('resultsCount');
+
+            resultsPane.classList.add('active');
+
+            // Flatten all opportunities
+            let allOpportunities = [];
+            results.forEach(result => {
+                if (result.opportunities) {
+                    allOpportunities = allOpportunities.concat(result.opportunities);
+                }
+            });
+
+            resultsCount.textContent = `Found ${allOpportunities.length} opportunities`;
+            cardsGrid.innerHTML = '';
+
+            if (allOpportunities.length === 0) {
+                cardsGrid.innerHTML = '<div style="text-align: center; padding: 40px; color: #7f8c8d;">No opportunities found with current filter criteria.</div>';
+                return;
+            }
+
+            // Create cards
+            allOpportunities.forEach((opp, index) => {
+                const card = createOpportunityCard(opp, index + 1);
+                cardsGrid.appendChild(card);
+            });
+
+            resultsPane.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+        // Safe number formatter
+        function safeFixed(value, decimals = 2) {
+            if (value === null || value === undefined || isNaN(value)) {
+                return '0.' + '0'.repeat(decimals);
+            }
+            return Number(value).toFixed(decimals);
+        }
+
+        // Create opportunity card
+        function createOpportunityCard(opp, index) {
+            // Determine if this is a call or put strategy
+            const strategyType = document.getElementById('typeOfTrade').value;
+            const isCall = strategyType === 'Poor Mans Covered Call';
+            const strategyEmoji = isCall ? '📈' : '📉';
+            const strategyText = isCall ? 'PMCC' : 'PMCP';
+            const leapsType = isCall ? 'Call' : 'Put';
+            const shortType = isCall ? 'Call' : 'Put';
+            const leapsEmoji = isCall ? '📈' : '📉';
+            const shortEmoji = isCall ? '🔴' : '🟢';
+            
+            const card = document.createElement('div');
+            card.className = 'opportunity-card';
+            card.innerHTML = `
+                <div class="card-header">
+                    <div>
+                        <div class="card-title">${opp.symbol || 'N/A'} <span style="font-size: 12px; background: ${isCall ? '#27ae60' : '#e74c3c'}; color: white; padding: 2px 8px; border-radius: 4px; margin-left: 8px;">${strategyEmoji} ${strategyText}</span></div>
+                        <div class="card-price">$${safeFixed(opp.underlying_price, 2)}</div>
+                    </div>
+                    <div style="text-align: right;">
+                        <div style="font-size: 14px; opacity: 0.8;">ROC</div>
+                        <div style="font-size: 24px; font-weight: 700;">${safeFixed(opp.roc_pct, 1)}%</div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="leg long">
+                        <div class="leg-title">${leapsEmoji} Long ${leapsType} (LEAP)</div>
+                        <div class="leg-details">
+                            <div class="leg-detail">
+                                <span class="leg-label">Expiry:</span>
+                                <span class="leg-value">${opp.leaps_expiration || 'N/A'}</span>
+                            </div>
+                            <div class="leg-detail">
+                                <span class="leg-label">Strike:</span>
+                                <span class="leg-value">$${safeFixed(opp.leaps_strike, 2)}</span>
+                            </div>
+                            <div class="leg-detail">
+                                <span class="leg-label">Price:</span>
+                                <span class="leg-value">$${safeFixed(opp.leaps_price, 2)}</span>
+                            </div>
+                            <div class="leg-detail">
+                                <span class="leg-label">Delta:</span>
+                                <span class="leg-value">${safeFixed(opp.leaps_delta, 3)}</span>
+                            </div>
+                            <div class="leg-detail">
+                                <span class="leg-label">DTE:</span>
+                                <span class="leg-value">${opp.leaps_days_to_expiration || 0} days</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="leg short">
+                        <div class="leg-title">${shortEmoji} Short ${shortType}</div>
+                        <div class="leg-details">
+                            <div class="leg-detail">
+                                <span class="leg-label">Expiry:</span>
+                                <span class="leg-value">${opp.short_expiration || 'N/A'}</span>
+                            </div>
+                            <div class="leg-detail">
+                                <span class="leg-label">Strike:</span>
+                                <span class="leg-value">$${safeFixed(opp.short_strike, 2)}</span>
+                            </div>
+                            <div class="leg-detail">
+                                <span class="leg-label">Credit:</span>
+                                <span class="leg-value">$${safeFixed(opp.short_price, 2)}</span>
+                            </div>
+                            <div class="leg-detail">
+                                <span class="leg-label">Delta:</span>
+                                <span class="leg-value">${safeFixed(opp.short_delta, 3)}</span>
+                            </div>
+                            <div class="leg-detail">
+                                <span class="leg-label">DTE:</span>
+                                <span class="leg-value">${opp.short_days_to_expiration || 0} days</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-footer">
+                    <div class="metric">
+                        <div class="metric-label">Net Debit</div>
+                        <div class="metric-value">$${safeFixed(opp.net_debit, 2)}</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-label">Max Profit</div>
+                        <div class="metric-value success">$${safeFixed(opp.max_profit, 2)}</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-label">Breakeven</div>
+                        <div class="metric-value">$${safeFixed(opp.breakeven, 2)}</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-label">POP</div>
+                        <div class="metric-value">${safeFixed(opp.pop_pct, 1)}%</div>
+                    </div>
+                </div>
+                <div class="card-actions">
+                    <button class="btn-favorite" onclick='addToFavorites(${JSON.stringify(opp)})'>
+                        ⭐ Add to Favorites
+                    </button>
+                </div>
+            `;
+            return card;
+        }
+
+        // Add to favorites
+        async function addToFavorites(opp) {
+            try {
+                const response = await fetch('/api/favorites', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(opp)
+                });
+
+                const result = await response.json();
+                if (result.error) {
+                    alert('Error: ' + result.error);
+                } else {
+                    alert('Added to favorites!');
+                    addLog(`Added ${opp.symbol} to favorites`, 'success', 'Favorites');
+                }
+            } catch (error) {
+                console.error('Error adding to favorites:', error);
+                alert('Failed to add to favorites');
+            }
+        }
+
+        // Show scan status
+        function showScanStatus(message, type) {
+            const scanStatus = document.getElementById('scanStatus');
+            scanStatus.textContent = message;
+            scanStatus.className = 'scan-status ' + type;
+        }
+
+        // Logging functions
+        function addLog(message, type = 'info', tag = 'System') {
+            const logsContent = document.getElementById('logsContent');
+            const timestamp = new Date().toLocaleTimeString();
+            
+            const logEntry = document.createElement('div');
+            logEntry.className = 'log-entry';
+            
+            let logClass = '';
+            if (type === 'error') logClass = 'log-error';
+            if (type === 'success') logClass = 'log-success';
+            if (type === 'warning') logClass = 'log-warning';
+            
+            logEntry.innerHTML = `
+                <span class="log-timestamp">${timestamp}</span>
+                <span class="log-tag">[${tag}]</span>
+                <span class="log-message ${logClass}">${message}</span>
+            `;
+            
+            logsContent.appendChild(logEntry);
+            logsContent.scrollTop = logsContent.scrollHeight;
+        }
+
+        function clearLogs() {
+            document.getElementById('logsContent').innerHTML = '';
+            addLog('Logs cleared', 'info', 'System');
+        }
+
+        function refreshLogs() {
+            addLog('Logs refreshed', 'info', 'System');
+        }
+    </script>
+</body>
+</html>

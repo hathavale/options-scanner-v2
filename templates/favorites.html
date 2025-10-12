@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Favorites - Options Strategy Scanner</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/favorites.css') }}">
+</head>
+<body>
+    <!-- Navigation Bar -->
+    <nav class="nav-bar">
+        <a href="/" class="nav-brand">📊 Options Scanner</a>
+        <div class="nav-links">
+            <a href="/" class="nav-link">Scanner</a>
+            <a href="/favorites" class="nav-link active">Favorites</a>
+        </div>
+    </nav>
+
+    <!-- Page Header -->
+    <div class="page-header">
+        <h1>⭐ My Favorites</h1>
+        <p>Manage and view your saved strategy opportunities</p>
+    </div>
+
+    <!-- Main Container -->
+    <div class="container">
+        <!-- Favorites Controls -->
+        <div class="favorites-controls">
+            <h3>🔧 Favorites Management</h3>
+            
+            <!-- Sort Controls -->
+            <div class="favorites-sort-controls">
+                <label>Sort By:</label>
+                <select id="sortField1" onchange="loadFavorites()">
+                    <option value="roc_pct">ROC %</option>
+                    <option value="net_debit_pct">Net Debit %</option>
+                    <option value="pop_pct">POP %</option>
+                    <option value="position_delta">Position Delta</option>
+                    <option value="break_even">Breakeven Price</option>
+                    <option value="leaps_strike">LEAPS Strike</option>
+                    <option value="short_strike">Short Strike</option>
+                    <option value="symbol">Symbol</option>
+                    <option value="date_created">Date Added</option>
+                </select>
+                
+                <button id="sortOrder1" class="sort-order-toggle" onclick="toggleSortOrder(1)">DESC</button>
+            </div>
+            
+            <div class="favorites-sort-controls">
+                <label>Then By:</label>
+                <select id="sortField2" onchange="loadFavorites()">
+                    <option value="">None</option>
+                    <option value="roc_pct">ROC %</option>
+                    <option value="net_debit_pct">Net Debit %</option>
+                    <option value="pop_pct">POP %</option>
+                    <option value="position_delta">Position Delta</option>
+                    <option value="break_even">Breakeven Price</option>
+                    <option value="leaps_strike">LEAPS Strike</option>
+                    <option value="short_strike">Short Strike</option>
+                    <option value="symbol">Symbol</option>
+                    <option value="date_created">Date Added</option>
+                </select>
+                
+                <button id="sortOrder2" class="sort-order-toggle" onclick="toggleSortOrder(2)">DESC</button>
+            </div>
+            
+            <!-- Filter Controls -->
+            <div class="favorites-filter-controls">
+                <label>Filter By:</label>
+                <select id="filterField" onchange="loadFilterValues()">
+                    <option value="">All Favorites</option>
+                    <option value="symbol">Symbol</option>
+                    <option value="type_of_trade">Trade Type</option>
+                    <option value="leaps_strike">LEAPS Strike</option>
+                    <option value="short_strike">Short Strike</option>
+                </select>
+                
+                <select id="filterValue" style="display: none;">
+                    <option value="">Select Value...</option>
+                </select>
+                
+                <button onclick="applyFavoritesFilter()">Apply Filter</button>
+                <button onclick="clearFavoritesFilter()">Clear Filter</button>
+            </div>
+        </div>
+        
+        <!-- Favorites Display Grid -->
+        <div class="favorites-grid" id="favoritesGrid">
+            <!-- Favorites will be inserted here dynamically -->
+        </div>
+        
+        <!-- Empty State -->
+        <div class="favorites-empty" id="favoritesEmpty" style="display: none;">
+            <div class="favorites-empty-icon">⭐</div>
+            <h3>No Favorites Yet</h3>
+            <p>Add opportunities to your favorites from the Scanner page to see them here.</p>
+        </div>
+    </div>
+
+    <script>
+        // State management
+        let currentSort = {
+            field1: 'roc_pct',
+            order1: 'DESC',
+            field2: '',
+            order2: 'DESC'
+        };
+        let currentFilter = {
+            field: '',
+            value: ''
+        };
+
+        // Load favorites on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            loadFavorites();
+        });
+
+        // Helper function to format numbers
+        function formatNumber(value, decimals = 2) {
+            if (value === null || value === undefined || isNaN(value)) {
+                return 'N/A';
+            }
+            return Number(value).toFixed(decimals);
+        }
+
+        // Toggle sort order
+        function toggleSortOrder(fieldNum) {
+            const button = document.getElementById(`sortOrder${fieldNum}`);
+            const currentOrder = button.textContent;
+            const newOrder = currentOrder === 'ASC' ? 'DESC' : 'ASC';
+            button.textContent = newOrder;
+            
+            if (fieldNum === 1) {
+                currentSort.order1 = newOrder;
+            } else {
+                currentSort.order2 = newOrder;
+            }
+            
+            loadFavorites();
+        }
+
+        // Load filter values based on selected field
+        async function loadFilterValues() {
+            const field = document.getElementById('filterField').value;
+            const filterValueSelect = document.getElementById('filterValue');
+            
+            if (!field) {
+                filterValueSelect.style.display = 'none';
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/favorites/field-values/${field}`);
+                const data = await response.json();
+                
+                filterValueSelect.innerHTML = '<option value="">Select Value...</option>';
+                data.values.forEach(value => {
+                    const option = document.createElement('option');
+                    option.value = value;
+                    option.textContent = value;
+                    filterValueSelect.appendChild(option);
+                });
+                
+                filterValueSelect.style.display = 'block';
+            } catch (error) {
+                console.error('Error loading filter values:', error);
+                alert('Failed to load filter values');
+            }
+        }
+        
+        // Apply filter
+        function applyFavoritesFilter() {
+            loadFavorites();
+        }
+        
+        // Clear filter
+        function clearFavoritesFilter() {
+            document.getElementById('filterField').value = '';
+            document.getElementById('filterValue').style.display = 'none';
+            document.getElementById('filterValue').innerHTML = '';
+            loadFavorites();
+        }
+
+        // Load and display favorites
+        async function loadFavorites() {
+            try {
+                // Build query parameters
+                const params = new URLSearchParams();
+                
+                // Add sorting
+                const sortField1 = document.getElementById('sortField1').value;
+                const sortOrder1 = document.getElementById('sortOrder1').textContent;
+                if (sortField1) {
+                    params.append('sort_field_1', sortField1);
+                    params.append('sort_order_1', sortOrder1);
+                }
+                
+                const sortField2 = document.getElementById('sortField2').value;
+                const sortOrder2 = document.getElementById('sortOrder2').textContent;
+                if (sortField2) {
+                    params.append('sort_field_2', sortField2);
+                    params.append('sort_order_2', sortOrder2);
+                }
+                
+                // Add filtering
+                const filterField = document.getElementById('filterField').value;
+                const filterValue = document.getElementById('filterValue').value;
+                if (filterField && filterValue) {
+                    params.append('filter_field', filterField);
+                    params.append('filter_value', filterValue);
+                }
+                
+                const response = await fetch(`/api/favorites?${params.toString()}`);
+                const favorites = await response.json();
+                
+                const favoritesGrid = document.getElementById('favoritesGrid');
+                const favoritesEmpty = document.getElementById('favoritesEmpty');
+                
+                if (favorites.length === 0) {
+                    favoritesGrid.style.display = 'none';
+                    favoritesEmpty.style.display = 'block';
+                } else {
+                    favoritesGrid.style.display = 'grid';
+                    favoritesEmpty.style.display = 'none';
+                    favoritesGrid.innerHTML = '';
+                    
+                    favorites.forEach(fav => {
+                        const card = createFavoriteCard(fav);
+                        favoritesGrid.appendChild(card);
+                    });
+                }
+            } catch (error) {
+                console.error('Error loading favorites:', error);
+                alert('Failed to load favorites');
+            }
+        }
+
+        // Create favorite card
+        function createFavoriteCard(fav) {
+            const card = document.createElement('div');
+            card.className = 'favorite-card';
+            card.innerHTML = `
+                <div class="favorite-card-header">
+                    <div>
+                        <div class="favorite-card-title">${fav.symbol}</div>
+                        <div class="favorite-card-price">$${formatNumber(fav.price, 2)}</div>
+                    </div>
+                    <div style="text-align: right;">
+                        <div style="font-size: 14px; opacity: 0.8;">${fav.type_of_trade === 'Poor Mans Covered Call' ? 'PMCC' : 'PMCP'}</div>
+                        <div style="font-size: 20px; font-weight: 700;">${formatNumber(fav.roc_pct, 1)}%</div>
+                    </div>
+                </div>
+                <div class="favorite-card-body">
+                    <div class="favorite-leg long">
+                        <div class="favorite-leg-title">📈 LEAPS</div>
+                        <div class="favorite-leg-detail">
+                            <span>Expiry:</span>
+                            <span>${fav.leaps_exp}</span>
+                        </div>
+                        <div class="favorite-leg-detail">
+                            <span>Strike:</span>
+                            <span>$${formatNumber(fav.leaps_strike, 2)}</span>
+                        </div>
+                        <div class="favorite-leg-detail">
+                            <span>Cost:</span>
+                            <span>$${formatNumber(fav.leaps_cost, 2)}</span>
+                        </div>
+                        <div class="favorite-leg-detail">
+                            <span>Delta:</span>
+                            <span>${formatNumber(fav.leaps_delta, 4)}</span>
+                        </div>
+                        <div class="favorite-leg-detail">
+                            <span>OI:</span>
+                            <span>${fav.leaps_oi}</span>
+                        </div>
+                    </div>
+                    <div class="favorite-leg short">
+                        <div class="favorite-leg-title">🔴 Short</div>
+                        <div class="favorite-leg-detail">
+                            <span>Expiry:</span>
+                            <span>${fav.short_exp}</span>
+                        </div>
+                        <div class="favorite-leg-detail">
+                            <span>Strike:</span>
+                            <span>$${formatNumber(fav.short_strike, 2)}</span>
+                        </div>
+                        <div class="favorite-leg-detail">
+                            <span>Credit:</span>
+                            <span>$${formatNumber(Math.abs(fav.short_cost), 2)}</span>
+                        </div>
+                        <div class="favorite-leg-detail">
+                            <span>Delta:</span>
+                            <span>${formatNumber(fav.short_delta, 4)}</span>
+                        </div>
+                        <div class="favorite-leg-detail">
+                            <span>IV:</span>
+                            <span>${formatNumber(fav.short_iv * 100, 2)}%</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="favorite-card-footer">
+                    <div class="favorite-metric">
+                        <div class="favorite-metric-label">Net Debit</div>
+                        <div class="favorite-metric-value">$${formatNumber(fav.net_debit, 2)}</div>
+                    </div>
+                    <div class="favorite-metric">
+                        <div class="favorite-metric-label">POP</div>
+                        <div class="favorite-metric-value success">${formatNumber(fav.pop_pct, 1)}%</div>
+                    </div>
+                    <div class="favorite-metric">
+                        <div class="favorite-metric-label">Breakeven</div>
+                        <div class="favorite-metric-value">$${formatNumber(fav.break_even, 2)}</div>
+                    </div>
+                    <div class="favorite-metric">
+                        <div class="favorite-metric-label">Position Δ</div>
+                        <div class="favorite-metric-value">${formatNumber(fav.position_delta, 4)}</div>
+                    </div>
+                </div>
+                <div class="favorite-actions">
+                    <button class="btn-remove" onclick="removeFavorite(${fav.id})">
+                        🗑️ Remove
+                    </button>
+                </div>
+            `;
+            return card;
+        }
+
+        // Remove favorite
+        async function removeFavorite(id) {
+            if (!confirm('Are you sure you want to remove this favorite?')) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/favorites/${id}`, {
+                    method: 'DELETE'
+                });
+
+                const result = await response.json();
+                if (result.error) {
+                    alert('Error: ' + result.error);
+                } else {
+                    loadFavorites();
+                }
+            } catch (error) {
+                console.error('Error removing favorite:', error);
+                alert('Failed to remove favorite');
+            }
+        }
+    </script>
+</body>
+</html>
