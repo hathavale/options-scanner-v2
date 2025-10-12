@@ -838,12 +838,15 @@ def scan_opportunities():
         if not ALPHAVANTAGE_API_KEY:
             return jsonify({'error': 'ALPHAVANTAGE_API_KEY not configured. Please set it in your .env file.'}), 500
         
-        filter_criteria = get_active_filter()
+        # Use filter criteria from request if provided, otherwise use active filter from database
+        filter_criteria = data.get('filter_criteria')
         if not filter_criteria:
-            return jsonify({'error': 'No active filter found'}), 400
+            filter_criteria = get_active_filter()
+            if not filter_criteria:
+                return jsonify({'error': 'No active filter found'}), 400
         
         logger.info(f"🚀 Starting scan for symbols: {', '.join(symbols)}")
-        logger.info(f"📋 Using filter: {filter_criteria['filter_criteria_name']}")
+        logger.info(f"📋 Using strategy: {filter_criteria.get('type_of_trade', 'Not specified')}")
         
         # Map filter criteria to Alpha Vantage function parameters
         opportunities, errors = scan_opportunities_alphavantage(

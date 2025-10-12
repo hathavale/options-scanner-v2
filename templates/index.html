@@ -441,10 +441,16 @@
             addLog(`Starting scan for: ${symbols}`, 'info', 'Scan');
 
             try {
+                // Get current filter settings including strategy type
+                const filterData = getFilterData();
+                
                 const response = await fetch('/api/scan', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({symbols: symbols})
+                    body: JSON.stringify({
+                        symbols: symbols,
+                        filter_criteria: filterData
+                    })
                 });
 
                 const result = await response.json();
