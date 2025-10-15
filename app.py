@@ -338,15 +338,18 @@ def scan_opportunities_alphavantage(
                     opportunities.append({
                         "symbol": symbol,
                         "price": price,
+                        "underlying_price": price,  # Add for frontend compatibility
                         "leaps_exp": leaps_exp,
                         "leaps_strike": leaps_strike,
                         "leaps_cost": leaps_cost,
+                        "leaps_price": leaps_ask,  # Add for frontend display
                         "leaps_delta": leaps_delta,
                         "leaps_oi": leaps_oi,
                         "leaps_volume": leaps_volume,
                         "short_exp": short_exp,
                         "short_strike": short_strike,
                         "short_premium": short_premium,
+                        "short_price": short_bid,  # Add for frontend display
                         "short_delta": short_delta,
                         "short_iv": short_iv,
                         "short_oi": short_oi,
