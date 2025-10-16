@@ -64,6 +64,12 @@ def fetch_last_price(symbol: str) -> float:
     if "Global Quote" not in payload or not payload["Global Quote"]:
         raise RuntimeError(f"No price data for {symbol}")
     
+    # Debug logging to trace price extraction
+    global_quote = payload["Global Quote"]
+    current_price = global_quote.get("05. price")
+    previous_close = global_quote.get("08. previous close")
+    logger.info(f"🔍 DEBUG {symbol}: Current Price='05. price'={current_price}, Previous Close='08. previous close'={previous_close}")
+    
     return float(payload["Global Quote"]["05. price"])
 
 def fetch_options_data(symbol: str) -> List[Dict]:
