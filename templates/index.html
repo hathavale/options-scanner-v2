@@ -144,16 +144,17 @@
                                 <div class="filter-group">
                                     <h3>Strategy Parameters</h3>
                                     <div class="filter-row">
-                                        <label>Max Net Debit %:</label>
-                                        <input type="number" id="maxNetDebitPct" value="{{ filter_criteria['max_net_debit_pct'] if filter_criteria else 0.5000 }}" step="0.0001" min="0" max="1">
+                                        <label>Max Net Debit % of Stock Price:</label>
+                                        <input type="number" id="maxNetDebitPct" value="{{ (filter_criteria['max_net_debit_pct'] * 100) if filter_criteria else 50 }}" step="1" min="0" max="100" title="Maximum debit as percentage of underlying stock price (e.g., 50 = 50%)">
+                                        <span style="margin-left: 5px; color: #888;">%</span>
                                     </div>
                                     <div class="filter-row">
                                         <label>Max Trades:</label>
-                                        <input type="number" id="maxTrades" value="{{ filter_criteria['max_trades'] if filter_criteria else 5 }}" min="1">
+                                        <input type="number" id="maxTrades" value="{{ filter_criteria['max_trades'] if filter_criteria else 5 }}" min="1" title="Maximum number of trade opportunities to return">
                                     </div>
                                     <div class="filter-row">
                                         <label>Risk Free Rate:</label>
-                                        <input type="number" id="riskFreeRate" value="{{ filter_criteria['risk_free_rate'] if filter_criteria else 0.045 }}" step="0.001" min="0">
+                                        <input type="number" id="riskFreeRate" value="{{ filter_criteria['risk_free_rate'] if filter_criteria else 0.045 }}" step="0.001" min="0" title="Risk-free interest rate for calculations (e.g., 0.045 = 4.5%)">
                                     </div>
                                 </div>
                             </div>
@@ -289,7 +290,7 @@
                 document.getElementById('shortMaxOtm').value = filter.short_max_otm_percent;
                 document.getElementById('shortOpenInterestMin').value = filter.short_open_interest_min;
                 document.getElementById('shortVolumeMin').value = filter.short_volume_min;
-                document.getElementById('maxNetDebitPct').value = filter.max_net_debit_pct;
+                document.getElementById('maxNetDebitPct').value = filter.max_net_debit_pct * 100; // Convert to percentage
                 document.getElementById('maxTrades').value = filter.max_trades;
                 document.getElementById('riskFreeRate').value = filter.risk_free_rate;
                 document.getElementById('typeOfTrade').value = filter.type_of_trade;
@@ -418,7 +419,7 @@
                 short_max_otm_percent: parseFloat(document.getElementById('shortMaxOtm').value),
                 short_open_interest_min: parseInt(document.getElementById('shortOpenInterestMin').value),
                 short_volume_min: parseInt(document.getElementById('shortVolumeMin').value),
-                max_net_debit_pct: parseFloat(document.getElementById('maxNetDebitPct').value),
+                max_net_debit_pct: parseFloat(document.getElementById('maxNetDebitPct').value) / 100, // Convert from percentage to decimal
                 max_trades: parseInt(document.getElementById('maxTrades').value),
                 risk_free_rate: parseFloat(document.getElementById('riskFreeRate').value),
                 type_of_trade: document.getElementById('typeOfTrade').value
