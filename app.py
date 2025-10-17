@@ -258,7 +258,7 @@ def scan_opportunities_alphavantage(
     short_otm_max_pct: float = 0.15,
     short_min_oi: int = 10,
     short_min_volume: int = 10,
-    max_net_debit_pct: float = 0.5,
+    max_net_debit: float = 5000.0,
     max_trades: int = 500,
     risk_free_rate: float = 0.05
 ) -> List[Dict]:
@@ -319,8 +319,8 @@ def scan_opportunities_alphavantage(
                 net_debit = leaps_cost - short_premium
                 net_debit_pct = net_debit / (price * 100)
                 
-                # Check net debit threshold
-                if net_debit > 0 and net_debit_pct < max_net_debit_pct:
+                # Check net debit threshold (dollar amount)
+                if net_debit > 0 and net_debit <= max_net_debit:
                     # Calculate ROC
                     roc_pct = (short_premium / net_debit) * 100 if net_debit > 0 else 0
                     
@@ -413,7 +413,7 @@ def initialize_default_filter():
                 3.0, 20.0,
                 10, 10,
                 10, 10,
-                0.5000, 5, 0.045,
+                5000.0, 5, 0.045,
                 'Poor Mans Covered Call', TRUE, FALSE,
                 CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
             )
@@ -585,12 +585,14 @@ def screener(symbol, underlying_price, filter_criteria, options_data=None):
             short_credit = float(short.get('mark_price', 0))
             net_debit = leap_cost - short_credit
             
-            # Check max net debit percentage
+            # Check max net debit (dollar amount per contract = price per share)
+            if net_debit > filter_criteria['max_net_debit_pct']:
+                rejection_stats['match_rejections']['net_debit'] += 1
+                continue
+            
+            # Calculate net debit percentage for display
             if underlying_price > 0:
                 net_debit_pct = (net_debit / underlying_price)
-                if net_debit_pct > filter_criteria['max_net_debit_pct']:
-                    rejection_stats['match_rejections']['net_debit'] += 1
-                    continue
             else:
                 net_debit_pct = 0
             
@@ -873,7 +875,7 @@ def scan_opportunities():
             short_otm_max_pct=filter_criteria['short_max_otm_percent'] / 100,
             short_min_oi=filter_criteria['short_open_interest_min'],
             short_min_volume=filter_criteria['short_volume_min'],
-            max_net_debit_pct=filter_criteria['max_net_debit_pct'],
+            max_net_debit=filter_criteria['max_net_debit_pct'],
             max_trades=filter_criteria['max_trades'],
             risk_free_rate=float(filter_criteria['risk_free_rate'])
         )
