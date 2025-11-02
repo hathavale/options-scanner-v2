@@ -930,8 +930,7 @@ def scan_opportunities():
                 all_results.append(result)
             
             # Add opportunity in the format expected by UI
-            # Calculate max profit if not already calculated
-            max_profit = opp['short_strike'] - opp['leaps_strike'] - (opp['net_debit'] / 100)
+            # Use the max_profit already correctly calculated
             
             result['opportunities'].append({
                 'symbol': symbol,
@@ -953,7 +952,7 @@ def scan_opportunities():
                 'short_volume': opp['short_volume'],
                 'net_debit': opp['net_debit'],
                 'net_debit_pct': opp['net_debit_pct'],
-                'max_profit': max_profit * 100,  # Convert to total contract value
+                'max_profit': opp['max_profit'],  # Already calculated correctly in scan_opportunities_alphavantage
                 'roc_pct': opp['roc_pct'],
                 'pop_pct': opp['pop_pct'],
                 'position_delta': opp['position_delta'],
