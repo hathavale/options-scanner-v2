@@ -51,7 +51,8 @@ def fetch_last_price(symbol: str) -> float:
     params = {
         "function": "GLOBAL_QUOTE",
         "symbol": symbol,
-        "apikey": ALPHAVANTAGE_API_KEY
+        "apikey": ALPHAVANTAGE_API_KEY,
+        "entitlement": "realtime"
     }
     url = f"{ALPHAVANTAGE_BASE_URL}?" + "&".join([f"{k}={v}" for k, v in params.items()])
     response = throttled_request(url, timeout=10)
@@ -78,7 +79,8 @@ def fetch_options_data(symbol: str) -> List[Dict]:
         "function": "REALTIME_OPTIONS",
         "symbol": symbol,
         "apikey": ALPHAVANTAGE_API_KEY,
-        "require_greeks": "true"
+        "require_greeks": "true",
+        "entitlement": "realtime"
     }
     url = f"{ALPHAVANTAGE_BASE_URL}?" + "&".join([f"{k}={v}" for k, v in params.items()])
     response = throttled_request(url, timeout=30)
@@ -321,8 +323,14 @@ def scan_opportunities_alphavantage(
                 
                 # Check net debit threshold (dollar amount)
                 if net_debit > 0 and net_debit <= max_net_debit:
-                    # Calculate ROC
-                    roc_pct = (short_premium / net_debit) * 100 if net_debit > 0 else 0
+                    # Calculate max profit
+                    if option_type == "call":
+                        max_profit = (short_strike - leaps_strike) * 100 - net_debit
+                    else:
+                        max_profit = (leaps_strike - short_strike) * 100 - net_debit
+                    
+                    # Calculate ROC based on max profit
+                    roc_pct = (max_profit / net_debit) * 100 if net_debit > 0 else 0
                     
                     # Calculate POP
                     T = days_to_exp / 365.0
@@ -362,6 +370,7 @@ def scan_opportunities_alphavantage(
                         "short_volume": short_volume,
                         "net_debit": net_debit,
                         "net_debit_pct": net_debit_pct * 100,
+                        "max_profit": max_profit,
                         "roc_pct": roc_pct,
                         "pop_pct": pop_pct,
                         "position_delta": position_delta,
@@ -581,8 +590,10 @@ def screener(symbol, underlying_price, filter_criteria, options_data=None):
                 continue
             
             # Calculate net debit
-            leap_cost = float(leap.get('mark_price', 0))
-            short_credit = float(short.get('mark_price', 0))
+            # For LEAP (we're buying): use ASK price
+            leap_cost = float(leap.get('ask', leap.get('mark_price', 0)))
+            # For SHORT (we're selling): use BID price
+            short_credit = float(short.get('bid', short.get('mark_price', 0)))
             net_debit = leap_cost - short_credit
             
             # Check max net debit (dollar amount per contract = price per share)
@@ -598,7 +609,9 @@ def screener(symbol, underlying_price, filter_criteria, options_data=None):
             
             # Calculate metrics
             max_profit = float(short['strike_price']) - float(leap['strike_price']) - net_debit
-            breakeven = float(leap['strike_price']) + net_debit
+            # For PMCP (puts): breakeven = LEAP strike - net debit
+            # Profit if stock stays above this level at expiration
+            breakeven = float(leap['strike_price']) - (net_debit / 100)
             
             if net_debit > 0:
                 roc_pct = (max_profit / net_debit) * 100
@@ -610,8 +623,25 @@ def screener(symbol, underlying_price, filter_criteria, options_data=None):
             short_delta = float(short.get('delta', 0))
             position_delta = leap_delta - short_delta
             
-            # Calculate POP (simplified - assumes short delta as rough POP)
-            pop_pct = (1 - abs(short_delta)) * 100
+            # Calculate POP using Black-Scholes for accuracy
+            # Get short expiration in years
+            days_to_exp = (short['expiration_date'] - datetime.now().date()).days
+            T = days_to_exp / 365.0
+            
+            # Get implied volatility from short option
+            sigma = float(short.get('implied_volatility', 0.30))
+            
+            # Calculate POP using Black-Scholes
+            # For PUT: POP = probability stock stays above short strike
+            pop = calculate_pop(
+                S=underlying_price,
+                K=float(short['strike_price']),
+                T=T,
+                r=filter_criteria['risk_free_rate'],
+                sigma=sigma,
+                option_type="put"  # PMCP uses puts
+            )
+            pop_pct = pop * 100
             
             opportunity = {
                 'symbol': symbol,
