@@ -233,17 +233,37 @@ def find_shorts(
     # Sort by delta closest to target
     return sorted(shorts, key=lambda x: abs(x[3] - target_delta))
 
-def calculate_pop(S: float, K: float, T: float, r: float, sigma: float, option_type: str) -> float:
-    """Calculate Probability of Profit using Black-Scholes"""
+def calculate_pop(S: float, K: float, T: float, r: float, sigma: float, option_type: str, breakeven: float = None) -> float:
+    """
+    Calculate Probability of Profit using Black-Scholes
+    
+    Args:
+        S: Current stock price
+        K: Strike price (or short strike for puts)
+        T: Time to expiration (years)
+        r: Risk-free rate
+        sigma: Implied volatility
+        option_type: 'call' or 'put'
+        breakeven: Breakeven price for PMCP (puts only) - if provided, calculates probability of reaching breakeven instead of short strike
+    
+    Returns:
+        Probability as decimal (0-1)
+    
+    For PMCC (calls): Probability stock stays below short strike (max profit zone)
+    For PMCP (puts): Probability stock stays below breakeven (actual profit zone) if breakeven provided, otherwise below short strike
+    """
     if sigma == 0 or T == 0:
         return 1.0 if (S < K if option_type == "call" else S > K) else 0.0
     
-    d2 = (math.log(S / K) + (r - 0.5 * sigma**2) * T) / (sigma * math.sqrt(T))
+    # For puts with breakeven (PMCP strategy), use breakeven for accurate profit probability
+    strike_to_use = breakeven if (option_type == "put" and breakeven is not None) else K
+    
+    d2 = (math.log(S / strike_to_use) + (r - 0.5 * sigma**2) * T) / (sigma * math.sqrt(T))
     
     if option_type == "call":
-        return norm.cdf(-d2)
+        return norm.cdf(-d2)  # Probability stock stays below strike
     else:
-        return norm.cdf(d2)
+        return norm.cdf(d2)   # Probability stock stays below breakeven (or strike if no breakeven)
 
 def scan_opportunities_alphavantage(
     symbols: List[str],
@@ -332,9 +352,19 @@ def scan_opportunities_alphavantage(
                     # Calculate ROC based on max profit
                     roc_pct = (max_profit / net_debit) * 100 if net_debit > 0 else 0
                     
+                    # Calculate breakeven
+                    if option_type == "call":
+                        breakeven = leaps_strike + (net_debit / 100)
+                    else:
+                        breakeven = leaps_strike - (net_debit / 100)
+                    
                     # Calculate POP
                     T = days_to_exp / 365.0
-                    pop = calculate_pop(price, short_strike, T, risk_free_rate, short_iv, option_type)
+                    # For PMCP (puts): Pass breakeven to calculate actual profit probability
+                    if option_type == "put":
+                        pop = calculate_pop(price, short_strike, T, risk_free_rate, short_iv, option_type, breakeven)
+                    else:
+                        pop = calculate_pop(price, short_strike, T, risk_free_rate, short_iv, option_type)
                     pop_pct = pop * 100
                     
                     # Calculate position delta
@@ -342,12 +372,6 @@ def scan_opportunities_alphavantage(
                         position_delta = leaps_delta - short_delta
                     else:
                         position_delta = leaps_delta + short_delta
-                    
-                    # Calculate breakeven
-                    if option_type == "call":
-                        breakeven = leaps_strike + (net_debit / 100)
-                    else:
-                        breakeven = leaps_strike - (net_debit / 100)
                     
                     opportunities.append({
                         "symbol": symbol,
